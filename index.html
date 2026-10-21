@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f6f5">
+  <meta name="description" content="An encrypted contact card. Open the full QR link to view it.">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Protected Contact Card</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="./vendor/qrcode.js"></script>
+  <script defer src="./core.js"></script>
+  <script defer src="./secure.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to contact</a>
+  <header class="topbar">
+    <a id="brand" class="brand" href="./" aria-label="Contact Card"><span class="brand-mark" aria-hidden="true">c.</span><span data-i18n="brand">Contact</span></a>
+    <div class="top-tools">
+      <div class="language" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="ru" aria-pressed="false">RU</button>
+      </div>
+      <button class="icon-button" id="theme-button" type="button" aria-label="Switch appearance" data-icon="moon"></button>
+    </div>
+  </header>
+  <main id="main" tabindex="-1">
+    <section id="empty" class="empty" hidden>
+      <span class="locked-mark" data-icon="shield" aria-hidden="true"></span>
+      <span class="eyebrow" data-i18n="yourSpace">A PRIVATE CONNECTION</span>
+      <h1 data-i18n="emptyTitle">This card<br>is protected.</h1>
+      <p data-i18n="emptyText">Open the full link from the QR code to view this card. Its key unlocks the selected details on your device.</p>
+      <button type="button" class="primary" id="new-card" data-i18n="createCard">Open Card Link</button>
+    </section>
+    <article id="contact" class="contact-layout" hidden>
+      <div class="portrait-column" id="portrait-column">
+        <div class="portrait-frame"><div class="art-index" aria-hidden="true"><span>01</span><span>PORTRAIT</span></div><img id="portrait" width="650" height="969" fetchpriority="high" alt="Pencil portrait"></div>
+        <div class="portrait-caption" aria-hidden="true"><span class="tiny-line"></span><span data-i18n="personalConnection">A PERSONAL CONNECTION</span></div>
+      </div>
+      <div class="contact-content">
+        <p class="eyebrow" data-i18n="letsConnect">LET’S CONNECT</p>
+        <h1 id="contact-name" translate="no"></h1>
+        <p id="contact-role" class="role"></p>
+        <p id="contact-company" class="company" translate="no"></p>
+        <div class="hero-actions">
+          <button type="button" class="primary" id="save-contact"><span data-icon="userPlus"></span><span data-i18n="saveContact">Save Contact</span></button>
+          <button type="button" class="secondary" id="download-menu"><span data-icon="download"></span><span data-i18n="download">Download</span></button>
+        </div>
+        <div id="contact-rows" class="contact-rows"></div>
+        <div id="social-links" class="social-links"></div>
+        <p class="save-hint" data-i18n="saveHint">Opens a contact file. Confirm “Add contact” on your phone, or import the downloaded file.</p>
+      </div>
+    </article>
+    <div id="card-footer" class="card-footer" hidden><span id="selection-note"></span><button type="button" id="owner-home" class="text-button" hidden data-i18n="myCard">My Card</button></div>
+  </main>
+  <nav id="action-dock" class="dock" aria-label="Card actions" hidden>
+    <button type="button" id="copy-details"><span data-icon="copy"></span><span data-i18n="copy">Copy</span></button>
+    <button type="button" id="choose-fields"><span data-icon="sliders"></span><span data-i18n="choose">Choose</span></button>
+    <button type="button" id="show-qr"><span data-icon="qr"></span><span>QR</span></button>
+    <button type="button" id="share-card" class="dock-primary"><span data-icon="share"></span><span data-i18n="share">Share</span></button>
+  </nav>
+  <dialog id="fields-dialog" aria-labelledby="fields-title" class="sheet">
+    <div class="grabber" aria-hidden="true"></div><div class="sheet-head"><div><p class="eyebrow" data-i18n="yourChoice">YOUR CHOICE</p><h2 id="fields-title" data-i18n="chooseTitle">Choose what to share.</h2></div><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div>
+    <p class="sheet-intro" data-i18n="chooseText">Only selected details appear in the shared card, contact file and copied text.</p>
+    <div class="presets" role="group" aria-label="Sharing presets"><button type="button" data-preset="all" data-i18n="allDetails">All Details</button><button type="button" data-preset="business" data-i18n="business">Business</button><button type="button" data-preset="minimal" data-i18n="minimal">Minimal</button></div>
+    <div id="field-options" class="field-options"></div>
+    <div class="selection-summary"><span data-icon="shield"></span><span id="field-count"></span></div>
+    <div class="sheet-actions"><button type="button" class="primary" id="apply-fields"><span data-i18n="apply">Preview Selection</span><span data-icon="arrow"></span></button></div>
+    <button type="button" id="edit-card" class="text-button" hidden data-i18n="editDetails">Edit My Details</button>
+  </dialog>
+  <dialog id="qr-dialog" aria-labelledby="qr-title" class="sheet qr-sheet">
+    <div class="grabber" aria-hidden="true"></div><div class="sheet-head"><div><p class="eyebrow" data-i18n="meetAndConnect">MEET & CONNECT</p><h2 id="qr-title" data-i18n="qrTitle">One scan. Connected.</h2></div><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div>
+    <div class="segmented qr-mode" role="group" aria-label="QR type"><button type="button" data-qr-mode="web" aria-pressed="true" data-i18n="webCard">Web Card</button><button type="button" data-qr-mode="offline" aria-pressed="false" data-i18n="offlineContact">Offline Contact</button></div>
+    <div id="qr-art" class="qr-art" aria-live="polite"></div><p class="qr-owner" id="qr-owner" translate="no"></p><p class="qr-description" id="qr-description"></p>
+    <div class="qr-downloads"><button type="button" class="secondary" id="qr-png"><span data-icon="download"></span>PNG</button><button type="button" class="secondary" id="qr-svg"><span data-icon="download"></span>SVG</button><button type="button" class="secondary" id="qr-copy"><span data-icon="link"></span><span data-i18n="copyLink">Copy Link</span></button></div>
+    <p class="fine-print" data-i18n="qrSelection">The QR uses your current selection. Choose fields before sharing.</p>
+  </dialog>
+  <dialog id="download-dialog" aria-labelledby="download-title" class="sheet compact-sheet">
+    <div class="grabber" aria-hidden="true"></div><div class="sheet-head"><h2 id="download-title" data-i18n="downloadCard">Keep a copy.</h2><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div>
+    <button type="button" class="menu-row" id="download-vcf"><span data-icon="contact"></span><span><strong data-i18n="contactFile">Contact File</strong><small data-i18n="contactFileHint">VCF · import into your address book</small></span><span data-icon="download"></span></button>
+    <button type="button" class="menu-row" id="download-text"><span data-icon="text"></span><span><strong data-i18n="textFile">Text File</strong><small data-i18n="textFileHint">TXT · selected details, ready to send</small></span><span data-icon="download"></span></button>
+    <button type="button" class="menu-row" id="download-html"><span data-icon="card"></span><span><strong data-i18n="offlineCard">Offline Card</strong><small data-i18n="offlineCardHint">HTML · view your selected card without internet</small></span><span data-icon="download"></span></button>
+    <button type="button" class="menu-row" id="print-card"><span data-icon="printer"></span><span><strong data-i18n="printPdf">Print / Save PDF</strong><small data-i18n="printPdfHint">Choose “Save as PDF” in the print menu</small></span><span data-icon="arrow"></span></button>
+  </dialog>
+  <dialog id="share-dialog" aria-labelledby="share-title" class="sheet compact-sheet">
+    <div class="grabber" aria-hidden="true"></div><div class="sheet-head"><h2 id="share-title" data-i18n="shareTitle">Share your way.</h2><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div>
+    <p class="sheet-intro" id="share-selection"></p><label class="link-label" for="share-link" data-i18n="cardLink">Card Link</label><textarea id="share-link" readonly rows="3" spellcheck="false" aria-label="Card link"></textarea>
+    <div class="sheet-actions"><button type="button" class="primary" id="copy-share-link"><span data-icon="copy"></span><span data-i18n="copyLink">Copy Link</span></button><button type="button" class="secondary" id="native-share"><span data-icon="share"></span><span data-i18n="share">Share</span></button></div>
+    <p class="fine-print" data-i18n="shareLimit">Anyone with this link can view and forward the selected details. Shared links and downloaded copies cannot be recalled.</p>
+  </dialog>
+  <dialog id="edit-dialog" aria-labelledby="edit-title" class="sheet">
+    <div class="grabber" aria-hidden="true"></div><div class="sheet-head"><div><p class="eyebrow" data-i18n="onYourDevice">ON THIS DEVICE</p><h2 id="edit-title" data-i18n="editTitle">Your details.</h2></div><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div>
+    <p class="sheet-intro" data-i18n="editHint">Saved in this browser only. Changes create a new sharing link; earlier links keep their original details.</p>
+    <form id="edit-form"><div id="edit-fields" class="edit-fields"></div><p id="edit-error" class="form-error" role="alert"></p><div class="sheet-actions"><button type="submit" class="primary" data-i18n="saveDetails">Save My Details</button></div></form>
+  </dialog>
+  <dialog id="message-dialog" aria-labelledby="message-title" class="sheet compact-sheet"><div class="sheet-head"><h2 id="message-title" data-i18n="copyManually">Copy Your Details</h2><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div><textarea id="manual-copy" readonly rows="9" aria-label="Details to copy"></textarea></dialog>
+  <dialog id="unlock-dialog" aria-labelledby="unlock-title" class="sheet compact-sheet"><div class="grabber" aria-hidden="true"></div><div class="sheet-head"><h2 id="unlock-title" data-i18n="unlockTitle">Open a protected card.</h2><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div><form id="unlock-form"><label class="link-label" for="unlock-link" data-i18n="unlockLabel">Paste the complete card link</label><textarea id="unlock-link" name="cardLink" rows="4" spellcheck="false" autocomplete="off" required></textarea><p id="unlock-error" class="form-error" role="alert"></p><div class="sheet-actions"><button type="submit" class="primary" data-i18n="openCard">Open Card</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <noscript><p class="noscript">Enable JavaScript to view this contact card and choose which details to share.</p></noscript>
+</body>
+</html>
