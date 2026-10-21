@@ -46,7 +46,7 @@
   Object.assign(I18N.ru,{yourSpace:'ЛИЧНОЕ ЗНАКОМСТВО',emptyTitle:'Карточка\nзащищена.',emptyText:'Откройте полную ссылку из QR-кода. Её ключ откроет выбранные данные на вашем устройстве.',createCard:'Открыть ссылку',unlockTitle:'Откройте защищённую карточку.',unlockLabel:'Вставьте полную ссылку на карточку',openCard:'Открыть карточку',invalidLink:'Не удалось открыть карточку. Вставьте полную ссылку из QR, включая часть после #.',cryptoUnavailable:'Откройте карточку по HTTPS-ссылке в современном браузере.',portraitUnavailable:'Не удалось открыть портрет. Контактные данные по-прежнему доступны.',preparing:'Подготовка…',shareLimit:'Полная ссылка содержит ключ. Её получатель может просмотреть и переслать выбранные данные. Отозвать ссылки и сохранённые копии нельзя.',webDescription:'Открывает зашифрованную карточку ключом из этого QR. Новому получателю нужен интернет.',protectedNote:'Открыто по вашей защищённой ссылке.'});
   const state = {lang:'en',source:null,selected:new Set(C.FIELDS),draft:new Set(),owner:false,shared:false,qrMode:'web',qr:null,theme:'light',preview:false};
   let ownerProfile = null, toastTimer, currentDialog = null;
-  let portraitRequest=0,qrRequest=0;
+  let portraitRequest=0,qrRequest=0,loadRequest=0;
   const portraitCache=new Map(),linkCache=new Map();
   function t(key) { return I18N[state.lang][key] || I18N.en[key] || key; }
   function safeStorageRead(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -76,7 +76,12 @@
   function render() {
     const p = selectedCard(), hasCard = !!state.source;
     $('empty').hidden = hasCard; $('contact').hidden = !hasCard; $('action-dock').hidden = !hasCard; $('card-footer').hidden = !hasCard;
-    if (!hasCard) return;
+    if (!hasCard) {
+      document.title='Protected Contact Card';
+      for(const id of ['contact-name','contact-role','contact-company','contact-rows','social-links','field-options','edit-fields','qr-art','qr-owner','selection-note','share-selection'])$(id).textContent='';
+      $('share-link').value='';$('manual-copy').value='';$('portrait').alt='';renderPortrait({});
+      return;
+    }
     const name = p.name || t('fallbackName');
     $('contact-name').textContent = name; $('contact-role').textContent = p.role ? (state.lang === 'ru' && p.roleRu ? p.roleRu : p.role) : '';
     $('contact-role').hidden = !p.role; $('contact-company').textContent = p.company || ''; $('contact-company').hidden = !p.company;
@@ -228,14 +233,16 @@
     downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),fileName('-Offline-Card.html'));
   }
   async function loadInitialState() {
+    const request=++loadRequest,sourceHash=location.hash;
+    closeDialog();state.source=null;state.owner=false;state.shared=false;state.qr=null;++qrRequest;
+    linkCache.clear();for(const promise of portraitCache.values())promise.then(url=>URL.revokeObjectURL(url)).catch(()=>{});portraitCache.clear();render();
     const stored = safeStorageRead('protected-contact-owner-v2');
     if (stored) try { ownerProfile=C.normalize(JSON.parse(stored)); } catch { /* Ignore broken device-local state. */ }
-    const hash=new URLSearchParams(location.hash.slice(1));
     try {
-      state.source=null;state.owner=false;state.shared=false;
-      if(location.hash){
+      if(sourceHash){
         if(!S.available())throw new Error('Crypto unavailable');
-        const opened=await S.openHash(location.hash),profile=C.unpack(opened.packed);
+        const opened=await S.openHash(sourceHash),profile=C.unpack(opened.packed);
+        if(request!==loadRequest||location.hash!==sourceHash)return;
         if(opened.owner){
           ownerProfile=profile;state.source=profile;state.owner=true;
           if(!safeStorageWrite('protected-contact-owner-v2',JSON.stringify(ownerProfile)))toast(t('storageUnavailable'));
@@ -243,10 +250,12 @@
         }else{state.source=profile;state.shared=true;}
       }
       else if(ownerProfile?.name) { state.source=ownerProfile;state.owner=true; }
-    } catch { state.source=null;state.owner=false;toast(S.available()?t('invalidLink'):t('cryptoUnavailable')); }
+    } catch { if(request!==loadRequest||location.hash!==sourceHash)return;state.source=null;state.owner=false;toast(S.available()?t('invalidLink'):t('cryptoUnavailable')); }
+    if(request!==loadRequest)return;
     state.selected=new Set(state.source?availableFields():C.FIELDS);
     if(state.owner&&!state.preview) { const saved=safeStorageRead('protected-contact-selection-v2'); if(saved) try{const parsed=JSON.parse(saved); if(Array.isArray(parsed))state.selected=new Set(parsed.filter(k=>availableFields().includes(k)));if(state.source.name)state.selected.add('name');}catch{} }
   }
+  window.addEventListener('hashchange',()=>loadInitialState().then(render));
   document.querySelectorAll('[data-lang]').forEach(el=>el.addEventListener('click',()=>setLanguage(el.dataset.lang)));
   document.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click',()=>closeDialog()));
   document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',()=>document.body.classList.remove('dialog-open'));dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeDialog();}});});
