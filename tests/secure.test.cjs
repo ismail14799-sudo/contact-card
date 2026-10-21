@@ -5,6 +5,25 @@ const C=require('../core.js'),S=require('../secure.js'),Q=require('../vendor/qrc
 const p={name:'Alex Example',role:'Operations Lead',roleRu:'Руководитель отдела',company:'Example LLC',phone:'+12345678901',email:'alex@example.org',website:'https://example.org/',telegram:'https://t.me/example',whatsapp:'https://wa.me/example',max:'https://max.ru/u/example',portrait:true,portraitKey:S.b64(new Uint8Array(32).fill(7))};
 const encode=s=>new TextEncoder().encode(s);
 
+test('Russian names follow the chosen language in text, contact files and encrypted links',async()=>{
+ const profile={...p,nameRu:'Алекс Пример',logoKey:S.b64(new Uint8Array(32).fill(9))};
+ const u=new URL(await S.createLink(C.pack(profile),'https://example.org/',false,'ru'));
+ const opened=await S.openHash(u.hash),decoded=C.unpack(opened.packed);
+ assert.equal(opened.lang,'ru');assert.equal(C.displayName(decoded,'ru'),profile.nameRu);assert.equal(C.displayName(decoded,'en'),p.name);
+ assert.ok(C.plainText(decoded,'ru').startsWith(profile.nameRu));assert.ok(C.vcard(decoded,'ru').includes('FN:'+profile.nameRu));
+ const hidden=C.unpack(C.pack(C.snapshot(profile,['name','email'])));assert.equal(hidden.logoKey,undefined);assert.equal(hidden.nameRu,profile.nameRu);
+ assert.equal(C.snapshot(profile,['company']).nameRu,undefined);
+ await assert.rejects(()=>S.openHash(u.hash+'&lang=en'));
+});
+test('the company logo is authenticated and cannot be opened as a portrait',async()=>{
+ const png=Uint8Array.from([137,80,78,71,13,10,26,10,...new Uint8Array(128).fill(23)]),encrypted=await S.encryptLogo(png);
+ assert.deepEqual(await S.decryptLogo(encrypted.file,encrypted.key),png);
+ await assert.rejects(()=>S.decryptPortrait(encrypted.file,encrypted.key));
+ const tampered=encrypted.file.slice();tampered[21]^=1;await assert.rejects(()=>S.decryptLogo(tampered,encrypted.key));
+ const profile={...p,logoKey:encrypted.key};
+ for(let mask=1;mask<1024;mask++){const fields=C.FIELDS.filter((_,i)=>mask&(1<<i)),filtered=C.unpack(C.pack(C.snapshot(profile,fields)));if(!fields.includes('company'))assert.equal(filtered.logoKey,undefined);}
+});
+
 test('encrypted contact link round-trips UTF-8 fields and portrait capability',async()=>{
  const link=await S.createLink(C.pack(p),'https://example.org/card/?old=discarded#old');
  const u=new URL(link),opened=await S.openHash(u.hash);assert.equal(u.search,'');assert.deepEqual(C.unpack(opened.packed),C.snapshot(p));

@@ -7,6 +7,7 @@ An English / Russian contact card with field selection, contact-file exports and
 - Contact snapshots are encrypted in the browser with AES-256-GCM, a fresh random 256-bit key, a random 96-bit IV and a 128-bit authentication tag.
 - The encrypted contact snapshot and its key travel only in the complete QR link's URL fragment. They are not published in repository files or sent in the initial page HTTP request.
 - The portrait is stored as an authenticated encrypted binary asset. Its independent decryption key is included inside a contact snapshot only when the portrait is selected.
+- The company logo is a separate authenticated encrypted image. Its key is omitted when the company field is excluded.
 - A direct visit to the website or repository without a complete card link reveals the generic interface and encrypted portrait bytes. A missing/wrong key, modified ciphertext or malformed payload fails closed.
 - Field selection happens before encryption. Omitted values, Russian job-title variants and the portrait key are removed from restricted snapshots rather than hidden with CSS.
 - All encryption uses the platform Web Crypto API. There is no custom cipher or external encryption service. Separate additional-authenticated-data labels bind contact and portrait ciphertext to their intended purposes.
@@ -27,6 +28,12 @@ The privately supplied owner launch link saves the master profile on that device
 
 Recipients receiving a normal card link decrypt a selected snapshot without storing the full profile as an owner profile. **Choose** changes the preview and creates a new encrypted snapshot. The built-in sharing actions and address bar then use that selection. A recipient cannot enable fields absent from their snapshot.
 
+**Keep on This Device** explicitly saves the selected encrypted link in this browser. Future visits restore it without pasting. Anyone using the same browser can open it. The removal action clears both the saved link and any local owner copy. New recipients have no saved card until they choose this action.
+
+Add the open card to the Home Screen after using **Keep This Card**. The public manifest omits a fixed `start_url` so installation can retain the referring document URL and its decryption fragment. Safari and Home Screen web apps have separate storage; the launch link supplies access. The app icons are generic. Home-screen installation itself must be performed using the phone browser.
+
+English is the default for new links. The encrypted name field can include a Russian variant. Language selection updates the name, exports, copy text and shared link locale. The company logo is tied to company visibility.
+
 Editing the local profile creates new links. Existing snapshots stay unchanged. A printed QR represents the snapshot and key created at that time. This static version has no remote revocation, expiry or access tracking.
 
 ## Offline and export behavior
@@ -38,6 +45,6 @@ Editing the local profile creates new links. Existing snapshots stay unchanged. 
 
 ## Validation
 
-Run `node --test tests/core.test.cjs tests/secure.test.cjs`. Security checks cover authenticated round trips, wrong keys, ciphertext tampering, missing parameters, purpose separation, independent Node AES-GCM interoperability, field omission, key omission and QR capacity. The release audit scans every publishable file for actual profile strings and generated secrets and rejects plaintext images or private paths.
+Run `node --test tests/core.test.cjs tests/secure.test.cjs tests/device.test.cjs`. Security checks cover authenticated round trips, wrong keys, ciphertext tampering, missing parameters, purpose separation, independent Node AES-GCM interoperability, field omission, key omission and QR capacity. The release audit scans every publishable file for actual profile strings and generated secrets and rejects personal or company plaintext images and private paths; only the three generic app icons are allowed as public PNGs.
 
 Prepared on 2026-10-21. No analytics, remote fonts or third-party QR endpoints are used. The vendored QR generator retains its MIT notice in `vendor/`.

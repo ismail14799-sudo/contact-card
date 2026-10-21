@@ -3,6 +3,7 @@
   'use strict';
   const C = window.ContactCore;
   const S = window.ContactSecure;
+  const D = window.ContactDevice;
   const $ = id => document.getElementById(id);
   const ICONS = {
     userPlus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6m-3-3h6"/>',
@@ -44,10 +45,12 @@
   Object.assign(I18N.ru,{skipContact:'К контактам',language:'Язык',cardActions:'Действия с карточкой',sharingPresets:'Наборы данных',qrType:'Тип QR',cardLinkLabel:'Ссылка на карточку',copyDetailsLabel:'Данные для копирования',portraitLabel:'ПОРТРЕТ'});
   Object.assign(I18N.en,{yourSpace:'A PRIVATE CONNECTION',emptyTitle:'This card\nis protected.',emptyText:'Open the full link from the QR code to view this card. Its key unlocks the selected details on your device.',createCard:'Open Card Link',unlockTitle:'Open a protected card.',unlockLabel:'Paste the complete card link',openCard:'Open Card',invalidLink:'This link could not unlock the card. Paste the complete QR link, including everything after #.',cryptoUnavailable:'Open this card in an up-to-date browser using its HTTPS link.',portraitUnavailable:'The portrait could not be opened. The contact details are still available.',preparing:'Preparing…',shareLimit:'Anyone with this complete link holds the key and can view or forward the selected details. Shared links and saved copies cannot be recalled.',webDescription:'Opens your encrypted card with the key in this QR. A new recipient needs internet.',protectedNote:'Opened with your private card link.'});
   Object.assign(I18N.ru,{yourSpace:'ЛИЧНОЕ ЗНАКОМСТВО',emptyTitle:'Карточка\nзащищена.',emptyText:'Откройте полную ссылку из QR-кода. Её ключ откроет выбранные данные на вашем устройстве.',createCard:'Открыть ссылку',unlockTitle:'Откройте защищённую карточку.',unlockLabel:'Вставьте полную ссылку на карточку',openCard:'Открыть карточку',invalidLink:'Не удалось открыть карточку. Вставьте полную ссылку из QR, включая часть после #.',cryptoUnavailable:'Откройте карточку по HTTPS-ссылке в современном браузере.',portraitUnavailable:'Не удалось открыть портрет. Контактные данные по-прежнему доступны.',preparing:'Подготовка…',shareLimit:'Полная ссылка содержит ключ. Её получатель может просмотреть и переслать выбранные данные. Отозвать ссылки и сохранённые копии нельзя.',webDescription:'Открывает зашифрованную карточку ключом из этого QR. Новому получателю нужен интернет.',protectedNote:'Открыто по вашей защищённой ссылке.'});
+  Object.assign(I18N.en,{nameRu:'Name · Russian',companyLogo:'Company logo',keepDevice:'Keep on This Device',deviceTitle:'One tap next time.',deviceIntro:'Keep this selected card in this browser, then add it to your Home Screen while the card is open.',iphoneSteps:'Open in Safari → Share → Add to Home Screen → Add.',androidSteps:'Open in Chrome → menu ⋮ → Add to Home screen.',devicePrivacy:'Anyone using this browser can open the saved card. You can remove this device’s saved copy below.',rememberDevice:'Keep This Card',forgetDevice:'Remove Saved Card from This Device',deviceSaved:'Saved. Open this website in the same browser next time, or add this open card to your Home Screen.',deviceRemoved:'The saved card was removed from this device.'});
+  Object.assign(I18N.ru,{nameRu:'Имя · по-русски',companyLogo:'Логотип компании',keepDevice:'Сохранить на устройстве',deviceTitle:'В следующий раз — одним нажатием.',deviceIntro:'Сохраните выбранную карточку в этом браузере, затем добавьте открытую карточку на главный экран.',iphoneSteps:'Safari → Поделиться → На экран «Домой» → Добавить.',androidSteps:'Chrome → меню ⋮ → Добавить на главный экран.',devicePrivacy:'Любой пользователь этого браузера сможет открыть сохранённую карточку. Ниже можно удалить её с этого устройства.',rememberDevice:'Сохранить карточку',forgetDevice:'Удалить карточку с этого устройства',deviceSaved:'Сохранено. Откройте сайт в том же браузере или добавьте открытую карточку на главный экран.',deviceRemoved:'Карточка удалена с этого устройства.'});
   const state = {lang:'en',source:null,selected:new Set(C.FIELDS),draft:new Set(),owner:false,shared:false,qrMode:'web',qr:null,theme:'light',preview:false};
   let ownerProfile = null, toastTimer, currentDialog = null;
-  let portraitRequest=0,qrRequest=0,loadRequest=0;
-  const portraitCache=new Map(),linkCache=new Map();
+  let portraitRequest=0,logoRequest=0,qrRequest=0,loadRequest=0;
+  const assetCache=new Map(),linkCache=new Map();
   function t(key) { return I18N[state.lang][key] || I18N.en[key] || key; }
   function safeStorageRead(key) { try { return localStorage.getItem(key); } catch { return null; } }
   function safeStorageWrite(key, value) { try { localStorage.setItem(key, value); return true; } catch { return false; } }
@@ -79,15 +82,15 @@
     if (!hasCard) {
       document.title='Protected Contact Card';
       for(const id of ['contact-name','contact-role','contact-company','contact-rows','social-links','field-options','edit-fields','qr-art','qr-owner','selection-note','share-selection'])$(id).textContent='';
-      $('share-link').value='';$('manual-copy').value='';$('portrait').alt='';renderPortrait({});
+      $('share-link').value='';$('manual-copy').value='';$('portrait').alt='';renderPortrait({});renderLogo({});
       return;
     }
-    const name = p.name || t('fallbackName');
+    const name = C.displayName(p,state.lang) || t('fallbackName');
     $('contact-name').textContent = name; $('contact-role').textContent = p.role ? (state.lang === 'ru' && p.roleRu ? p.roleRu : p.role) : '';
     $('contact-role').hidden = !p.role; $('contact-company').textContent = p.company || ''; $('contact-company').hidden = !p.company;
     document.title = name + ' · ' + t('brand');
     $('portrait-column').hidden = !p.portrait; $('contact').classList.toggle('no-portrait',!p.portrait);
-    renderPortrait(p);
+    renderPortrait(p);renderLogo(p);
     const rows = [];
     if (p.phone) rows.push(['phone', 'phone', p.phone, 'tel:' + p.phone.replace(/[^+\d]/g,'')]);
     if (p.email) rows.push(['email','mail',p.email,'mailto:' + p.email]);
@@ -102,25 +105,33 @@
     $('choose-fields').setAttribute('aria-label',t('chooseTitle'));
     currentLink().catch(()=>{});
   }
-  async function portraitUrl(p){
-    if(!p.portrait||!p.portraitKey)return '';
-    if(!portraitCache.has(p.portraitKey)){
+  async function imageAsset(p,kind){
+    const logo=kind==='logo',key=logo?p.company&&p.logoKey:p.portrait&&p.portraitKey;
+    if(!key)return null;
+    const cacheKey=kind+'|'+key;
+    if(!assetCache.has(cacheKey)){
       const promise=(async()=>{
-        const response=await fetch('./data/portrait.enc',{credentials:'omit',referrerPolicy:'no-referrer'});
-        if(!response.ok)throw new Error('Portrait unavailable');
-        const decrypted=await S.decryptPortrait(await response.arrayBuffer(),p.portraitKey);
-        if(decrypted[0]!==255||decrypted[1]!==216||decrypted[2]!==255)throw new Error('Invalid portrait');
-        return URL.createObjectURL(new Blob([decrypted],{type:'image/jpeg'}));
+        const response=await fetch(logo?'./data/brand.enc':'./data/portrait.enc',{credentials:'omit',referrerPolicy:'no-referrer'});
+        if(!response.ok)throw new Error('Image unavailable');
+        const bytes=await (logo?S.decryptLogo:S.decryptPortrait)(await response.arrayBuffer(),key);
+        if(logo?!(bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71):!(bytes[0]===255&&bytes[1]===216&&bytes[2]===255))throw new Error('Invalid image');
+        const blob=new Blob([bytes],{type:logo?'image/png':'image/jpeg'});
+        return {url:URL.createObjectURL(blob),blob};
       })();
-      portraitCache.set(p.portraitKey,promise);
-      promise.catch(()=>portraitCache.delete(p.portraitKey));
+      assetCache.set(cacheKey,promise);promise.catch(()=>assetCache.delete(cacheKey));
     }
-    return portraitCache.get(p.portraitKey);
+    return assetCache.get(cacheKey);
+  }
+  async function portraitUrl(p){return (await imageAsset(p,'portrait'))?.url||'';}
+  async function renderLogo(p){
+    const request=++logoRequest;$('company-logo-wrap').hidden=true;$('company-logo').removeAttribute('src');
+    if(!p.company||!p.logoKey)return;
+    try{const asset=await imageAsset(p,'logo');if(request!==logoRequest)return;$('company-logo').src=asset.url;$('company-logo').alt=t('companyLogo');$('company-logo-wrap').hidden=false;}catch{ /* Contact data remains usable if the logo is unavailable. */ }
   }
   async function renderPortrait(p){
     const request=++portraitRequest;
     if(!p.portrait||!p.portraitKey){$('portrait').removeAttribute('src');$('portrait-column').hidden=true;$('contact').classList.add('no-portrait');return;}
-    $('portrait').alt=t('portraitDescription')+(p.name?' · '+p.name:'');
+    $('portrait').alt=t('portraitDescription')+(p.name?' · '+C.displayName(p,state.lang):'');
     try{
       const url=await portraitUrl(p);if(request!==portraitRequest)return;
       $('portrait').src=url;$('portrait-column').hidden=false;$('contact').classList.remove('no-portrait');
@@ -132,6 +143,7 @@
   }
   function fieldValue(key) {
     if (key === 'portrait') return t('portraitDescription');
+    if (key === 'name') return C.displayName(state.source,state.lang);
     if (key === 'role' && state.lang === 'ru') return state.source.roleRu || state.source.role;
     if (['telegram','whatsapp'].includes(key)) {
       try { const u = new URL(state.source[key]); return '@' + u.pathname.split('/').filter(Boolean).pop(); } catch { return state.source[key]; }
@@ -153,10 +165,10 @@
   }
   async function currentLink() {
     const base=canonicalBase();if(!base||!S.available())return '';
-    const p=selectedCard(),cacheKey=JSON.stringify(C.pack(p));
+    const p=selectedCard(),cacheKey=JSON.stringify([state.lang,C.pack(p)]);
     if(!linkCache.has(cacheKey)){
       if(linkCache.size>50)linkCache.clear();
-      const promise=S.createLink(C.pack(p),base);linkCache.set(cacheKey,promise);promise.catch(()=>linkCache.delete(cacheKey));
+      const promise=S.createLink(C.pack(p),base,false,state.lang);linkCache.set(cacheKey,promise);promise.catch(()=>linkCache.delete(cacheKey));
     }
     return linkCache.get(cacheKey);
   }
@@ -171,7 +183,7 @@
   function downloadBlob(blob, name) {
     const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000);
   }
-  const fileName = suffix => (selectedCard().name || 'Contact').replace(/[^\p{L}\p{N} ._-]/gu,'').trim().replace(/\s+/g,'-') + suffix;
+  const fileName = suffix => (C.displayName(selectedCard(),state.lang) || 'Contact').replace(/[^\p{L}\p{N} ._-]/gu,'').trim().replace(/\s+/g,'-') + suffix;
   function exportVcard(openContact = false) {
     const blob = new Blob([C.vcard(selectedCard(),state.lang)],{type:'text/vcard;charset=utf-8'});
     if (openContact && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
@@ -186,7 +198,7 @@
     document.querySelectorAll('[data-qr-mode]').forEach(el => el.setAttribute('aria-pressed',String(el.dataset.qrMode === state.qrMode)));
     let data='';try{data=mode==='offline'?C.vcard(selectedCard(),state.lang,{compact:true}):await currentLink();}catch{data='';}
     if(request!==qrRequest||mode!==state.qrMode)return;
-    $('qr-owner').textContent = selectedCard().name || t('fallbackName');
+    $('qr-owner').textContent = C.displayName(selectedCard(),state.lang) || t('fallbackName');
     $('qr-description').textContent = state.qrMode === 'web' ? t('webDescription') : t('offlineDescription');
     $('qr-copy').innerHTML = icon(state.qrMode === 'web' ? 'link' : 'copy') + '<span>' + t(state.qrMode === 'web' ? 'copyLink' : 'offlineQrCopy') + '</span>';
     if (!data) { state.qr = null; $('qr-art').textContent = t('webUnavailable'); $('qr-description').textContent = ''; }
@@ -217,37 +229,41 @@
   function openEdit() {
     closeDialog(); const p = ownerProfile || {};
     const types={phone:'tel',email:'email',website:'url',telegram:'url',whatsapp:'url',max:'url'};
-    $('edit-fields').innerHTML = ['name','role','roleRu','company','phone','email','website','telegram','whatsapp','max'].map(key=>'<label for="edit-'+key+'"><span>'+C.html(t(key))+'</span><input id="edit-'+key+'" name="'+key+'" type="'+(types[key]||'text')+'" value="'+C.html(p[key])+'" maxlength="'+(['website','telegram','whatsapp','max'].includes(key)?600:160)+'" autocomplete="'+({name:'name',company:'organization',phone:'tel',email:'email'}[key]||'off')+'" spellcheck="false"'+(key==='name'?' required':'')+'></label>').join('');
+    $('edit-fields').innerHTML = ['name','nameRu','role','roleRu','company','phone','email','website','telegram','whatsapp','max'].map(key=>'<label for="edit-'+key+'"><span>'+C.html(t(key))+'</span><input id="edit-'+key+'" name="'+key+'" type="'+(types[key]||'text')+'" value="'+C.html(p[key])+'" maxlength="'+(['website','telegram','whatsapp','max'].includes(key)?600:160)+'" autocomplete="'+({name:'name',company:'organization',phone:'tel',email:'email'}[key]||'off')+'" spellcheck="false"'+(key==='name'?' required':'')+'></label>').join('');
     $('edit-error').textContent=''; openDialog('edit-dialog');
   }
   async function exportOfflineHtml() {
-    const p = selectedCard(); let photo='';
+    const p = selectedCard(); let photo='',logo='';
+    const asData=asset=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(asset.blob);});
+    if(p.company&&p.logoKey)try{logo=await asData(await imageAsset(p,'logo'));}catch{}
     if (p.portrait) {
       try {
-        const url=await portraitUrl(p);
-        if(url){const res=await fetch(url);photo=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;res.blob().then(b=>reader.readAsDataURL(b));});}
+        const asset=await imageAsset(p,'portrait');if(asset)photo=await asData(asset);
       } catch { /* The contact data is still exported if the image is unavailable. */ }
     }
     const h=C.html, data = C.plainText(p,state.lang), vcf='data:text/vcard;charset=utf-8,'+encodeURIComponent(C.vcard(p,state.lang));
-    const doc='<!doctype html><html lang="'+state.lang+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>'+h(p.name||t('fallbackName'))+'</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f6f6f5;color:#202123;margin:0;padding:34px 23px}main{max-width:420px;margin:auto}img{display:block;width:190px;height:245px;object-fit:cover;object-position:top;margin:0 auto 28px;border-radius:8px 8px 100px 100px}h1{font-size:35px;letter-spacing:-.04em;line-height:1.1;text-align:center}pre{font:14px/1.9 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;padding:25px 0;border-top:1px solid #ddd}a{display:block;padding:15px;background:#202123;color:white;text-decoration:none;text-align:center;border-radius:40px;font-size:14px;font-weight:600}p{font-size:11px;color:#777;text-align:center;margin-top:22px}</style></head><body><main>'+(photo?'<img src="'+h(photo)+'" alt="'+h(t('portraitDescription'))+'" width="190" height="245">':'')+'<h1>'+h(p.name||t('fallbackName'))+'</h1><pre>'+h(data)+'</pre><a download="'+h(fileName('.vcf'))+'" href="'+h(vcf)+'">'+h(t('saveContact'))+'</a><p>'+h(t('saveHint'))+'</p></main></body></html>';
+    const doc='<!doctype html><html lang="'+state.lang+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>'+h(C.displayName(p,state.lang)||t('fallbackName'))+'</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f6f6f5;color:#202123;margin:0;padding:34px 23px}main{max-width:420px;margin:auto}img{display:block;width:190px;height:245px;object-fit:cover;object-position:top;margin:0 auto 28px;border-radius:8px 8px 100px 100px}img.company-logo{width:135px;height:auto;border-radius:10px;margin:0 auto 18px}h1{font-size:35px;letter-spacing:-.04em;line-height:1.1;text-align:center}pre{font:14px/1.9 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;padding:25px 0;border-top:1px solid #ddd}a{display:block;padding:15px;background:#202123;color:white;text-decoration:none;text-align:center;border-radius:40px;font-size:14px;font-weight:600}p{font-size:11px;color:#777;text-align:center;margin-top:22px}</style></head><body><main>'+(photo?'<img src="'+h(photo)+'" alt="'+h(t('portraitDescription'))+'" width="190" height="245">':'')+(logo?'<img class="company-logo" src="'+h(logo)+'" alt="'+h(t('companyLogo'))+'">':'')+'<h1>'+h(C.displayName(p,state.lang)||t('fallbackName'))+'</h1><pre>'+h(data)+'</pre><a download="'+h(fileName('.vcf'))+'" href="'+h(vcf)+'">'+h(t('saveContact'))+'</a><p>'+h(t('saveHint'))+'</p></main></body></html>';
     downloadBlob(new Blob([doc],{type:'text/html;charset=utf-8'}),fileName('-Offline-Card.html'));
   }
   async function loadInitialState() {
     const request=++loadRequest,sourceHash=location.hash;
     closeDialog();state.source=null;state.owner=false;state.shared=false;state.qr=null;++qrRequest;
-    linkCache.clear();for(const promise of portraitCache.values())promise.then(url=>URL.revokeObjectURL(url)).catch(()=>{});portraitCache.clear();render();
+    linkCache.clear();for(const promise of assetCache.values())promise.then(asset=>URL.revokeObjectURL(asset.url)).catch(()=>{});assetCache.clear();render();
     const stored = safeStorageRead('protected-contact-owner-v2');
     if (stored) try { ownerProfile=C.normalize(JSON.parse(stored)); } catch { /* Ignore broken device-local state. */ }
+    let savedLink='';if(!sourceHash)try{savedLink=D.read(window.localStorage,location.href);}catch{ /* Continue without a saved device copy. */ }
+    const openingHash=sourceHash||(savedLink?new URL(savedLink).hash:'');
     try {
-      if(sourceHash){
+      if(openingHash){
         if(!S.available())throw new Error('Crypto unavailable');
-        const opened=await S.openHash(sourceHash),profile=C.unpack(opened.packed);
+        const opened=await S.openHash(openingHash),profile=C.unpack(opened.packed);
         if(request!==loadRequest||location.hash!==sourceHash)return;
+        state.lang=opened.lang;
         if(opened.owner){
           ownerProfile=profile;state.source=profile;state.owner=true;
           if(!safeStorageWrite('protected-contact-owner-v2',JSON.stringify(ownerProfile)))toast(t('storageUnavailable'));
           history.replaceState(null,'',location.pathname+location.search);
-        }else{state.source=profile;state.shared=true;}
+        }else{state.source=profile;state.shared=true;if(savedLink)history.replaceState(null,'',location.pathname+openingHash);}
       }
       else if(ownerProfile?.name) { state.source=ownerProfile;state.owner=true; }
     } catch { if(request!==loadRequest||location.hash!==sourceHash)return;state.source=null;state.owner=false;toast(S.available()?t('invalidLink'):t('cryptoUnavailable')); }
@@ -255,14 +271,19 @@
     state.selected=new Set(state.source?availableFields():C.FIELDS);
     if(state.owner&&!state.preview) { const saved=safeStorageRead('protected-contact-selection-v2'); if(saved) try{const parsed=JSON.parse(saved); if(Array.isArray(parsed))state.selected=new Set(parsed.filter(k=>availableFields().includes(k)));if(state.source.name)state.selected.add('name');}catch{} }
   }
-  window.addEventListener('hashchange',()=>loadInitialState().then(render));
-  document.querySelectorAll('[data-lang]').forEach(el=>el.addEventListener('click',()=>setLanguage(el.dataset.lang)));
+  window.addEventListener('hashchange',()=>loadInitialState().then(()=>setLanguage(state.lang)));
+  async function updateAddress(){const stamp=JSON.stringify([state.lang,C.pack(selectedCard())]),link=await currentLink();if(stamp!==JSON.stringify([state.lang,C.pack(selectedCard())]))return '';if(link)history.replaceState(null,'',location.pathname+new URL(link).hash);return link;}
+  function openDevice(){ $('device-status').textContent='';openDialog('device-dialog'); }
+  $('keep-device').addEventListener('click',openDevice);
+  $('remember-device').addEventListener('click',async()=>{try{const link=await updateAddress();if(!link)throw new Error('No card');D.save(localStorage,link,location.href);$('device-status').textContent=t('deviceSaved');}catch{$('device-status').textContent=t('storageUnavailable');}});
+  $('forget-device').addEventListener('click',()=>{try{D.forget(localStorage);ownerProfile=null;history.replaceState(null,'',location.pathname);closeDialog();state.source=null;state.owner=false;state.shared=false;render();toast(t('deviceRemoved'));}catch{$('device-status').textContent=t('storageUnavailable');}});
+  document.querySelectorAll('[data-lang]').forEach(el=>el.addEventListener('click',()=>{setLanguage(el.dataset.lang);if(state.source)updateAddress().catch(()=>{});}));
   document.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click',()=>closeDialog()));
   document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',()=>document.body.classList.remove('dialog-open'));dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeDialog();}});});
   $('theme-button').addEventListener('click',()=>setTheme(state.theme==='light'?'dark':'light'));
   $('new-card').addEventListener('click',()=>{$('unlock-link').value='';$('unlock-error').textContent='';openDialog('unlock-dialog');});
   document.querySelector('.skip').addEventListener('click',e=>{e.preventDefault();$('main').focus();$('main').scrollIntoView();});
-  $('unlock-form').addEventListener('submit',async e=>{e.preventDefault();const input=$('unlock-link').value.trim();let hash='';try{hash=input.startsWith('#')?input:new URL(input).hash;S.parseHash(hash);if(!S.available())throw new Error('HTTPS required');const opened=await S.openHash(hash);C.unpack(opened.packed);history.replaceState(null,'',location.pathname+location.search+hash);closeDialog();await loadInitialState();render();}catch{$('unlock-error').textContent=S.available()?t('invalidLink'):t('cryptoUnavailable');}});
+  $('unlock-form').addEventListener('submit',async e=>{e.preventDefault();const input=$('unlock-link').value.trim();let hash='';try{hash=input.startsWith('#')?input:new URL(input).hash;S.parseHash(hash);if(!S.available())throw new Error('HTTPS required');const opened=await S.openHash(hash);C.unpack(opened.packed);history.replaceState(null,'',location.pathname+location.search+hash);closeDialog();await loadInitialState();setLanguage(state.lang);}catch{$('unlock-error').textContent=S.available()?t('invalidLink'):t('cryptoUnavailable');}});
   $('save-contact').addEventListener('click',()=>exportVcard(true));
   $('download-menu').addEventListener('click',()=>openDialog('download-dialog'));
   $('download-vcf').addEventListener('click',()=>exportVcard());
@@ -285,13 +306,13 @@
   $('native-share').addEventListener('click',async()=>{if(!navigator.share)return;try{const url=$('share-link').value;if(url)await navigator.share({title:selectedCard().name||'Contact',url});}catch(error){if(error.name!=='AbortError')copy($('share-link').value);}});
   $('owner-home').addEventListener('click',()=>{state.source=ownerProfile;state.owner=true;state.shared=false;state.selected=new Set(availableFields());history.replaceState(null,'',location.pathname+location.search);render();});
   $('edit-form').addEventListener('submit',e=>{
-    e.preventDefault();const values=Object.fromEntries(new FormData(e.currentTarget));const p=C.normalize({...values,portrait:ownerProfile?.portrait||false,portraitKey:ownerProfile?.portraitKey||''});
+    e.preventDefault();const values=Object.fromEntries(new FormData(e.currentTarget));const p=C.normalize({...values,portrait:ownerProfile?.portrait||false,portraitKey:ownerProfile?.portraitKey||'',logoKey:ownerProfile?.logoKey||''});
     let error='',field='';if(!p.name){error=t('nameRequired');field='name';}else if(values.email&&!p.email){error=t('emailInvalid');field='email';}else for(const k of ['website','telegram','whatsapp','max'])if(values[k]&&!p[k]){error=t('urlInvalid');field=k;break;}
     if(error){$('edit-error').textContent=error;$('edit-'+field).focus();return;}
     ownerProfile=p;state.source=p;state.owner=true;state.shared=false;state.selected=new Set(availableFields());
     if(!safeStorageWrite('protected-contact-owner-v2',JSON.stringify(p)))toast(t('storageUnavailable'));else toast(t('saved'));
     safeStorageWrite('protected-contact-selection-v2',JSON.stringify([...state.selected]));closeDialog();render();
   });
-  setIcons();setTheme(safeStorageRead('contact-theme-v1')||'light');setLanguage('en');loadInitialState().then(()=>setLanguage('en'));
-  if(location.protocol!=='file:'&&'serviceWorker'in navigator&&!state.preview)navigator.serviceWorker.register('./sw.js?v=4',{updateViaCache:'none'}).catch(()=>{});
+  setIcons();setTheme(safeStorageRead('contact-theme-v1')||'light');setLanguage('en');loadInitialState().then(()=>setLanguage(state.lang));
+  if(location.protocol!=='file:'&&'serviceWorker'in navigator&&!state.preview)navigator.serviceWorker.register('./sw.js?v=5',{updateViaCache:'none'}).catch(()=>{});
 })();

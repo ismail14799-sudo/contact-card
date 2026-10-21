@@ -15,6 +15,7 @@
   function normalize(input = {}) {
     const p = Object.create(null);
     p.name = clean(input.name, 100);
+    p.nameRu = clean(input.nameRu, 100);
     p.role = clean(input.role, 100);
     p.roleRu = clean(input.roleRu, 120);
     p.company = clean(input.company, 160);
@@ -24,6 +25,7 @@
     for (const key of ['website', 'telegram', 'whatsapp', 'max']) p[key] = safeUrl(input[key]);
     p.portrait = input.portrait === true;
     p.portraitKey = p.portrait && typeof input.portraitKey === 'string' && /^[A-Za-z0-9_-]{43}$/.test(input.portraitKey) ? input.portraitKey : '';
+    p.logoKey = p.company && typeof input.logoKey === 'string' && /^[A-Za-z0-9_-]{43}$/.test(input.logoKey) ? input.logoKey : '';
     return p;
   }
   function snapshot(input, selected = FIELDS) {
@@ -32,7 +34,9 @@
       if (!allow.has(key)) continue;
       if (key === 'portrait') { if (p.portrait) { out.portrait = true; if (p.portraitKey) out.portraitKey = p.portraitKey; } }
       else if (p[key]) out[key] = p[key];
+      if (key === 'name' && p.name && p.nameRu) out.nameRu = p.nameRu;
       if (key === 'role' && p.roleRu) out.roleRu = p.roleRu;
+      if (key === 'company' && p.company && p.logoKey) out.logoKey = p.logoKey;
     }
     return out;
   }
@@ -43,6 +47,8 @@
       if (value) values.push([KEYS[i], value]);
     }
     if (p.roleRu) values.push(['rr', p.roleRu]);
+    if (p.nameRu) values.push(['nr', p.nameRu]);
+    if (p.company && p.logoKey) values.push(['lk', p.logoKey]);
     if (p.portrait && p.portraitKey) values.push(['ik', p.portraitKey]);
     return { v: 1, d: Object.fromEntries(values) };
   }
@@ -62,6 +68,8 @@
     const p = Object.create(null);
     for (let i = 0; i < FIELDS.length; i++) p[FIELDS[i]] = object.d[KEYS[i]];
     if (p.role) p.roleRu = object.d.rr;
+    if (p.name) p.nameRu = object.d.nr;
+    if (p.company) p.logoKey = object.d.lk;
     if (p.portrait === true) p.portraitKey = object.d.ik;
     const out = snapshot(p);
     if (!Object.keys(out).length) throw new Error('Empty contact card');
@@ -73,6 +81,7 @@
     return u.href;
   }
   const escapeV = value => String(value).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
+  const displayName = (profile, lang = 'en') => lang === 'ru' && profile.nameRu ? profile.nameRu : profile.name;
   function fold(line) {
     const output = []; let segment = '', count = 0;
     for (const character of line) {
@@ -84,7 +93,7 @@
   }
   function vcard(input, lang = 'en', options = {}) {
     const p = snapshot(input), lines = ['BEGIN:VCARD', 'VERSION:3.0'];
-    const name = p.name || 'Contact';
+    const name = displayName(p,lang) || 'Contact';
     const parts = name.split(/\s+/), family = parts.length > 1 ? parts.pop() : '';
     lines.push('N:' + escapeV(family) + ';' + escapeV(parts.join(' ')) + ';;;', 'FN:' + escapeV(name));
     if (p.role) lines.push('TITLE:' + escapeV(lang === 'ru' && p.roleRu ? p.roleRu : p.role));
@@ -102,11 +111,11 @@
   }
   function plainText(input, lang = 'en') {
     const p = snapshot(input), labels = lang === 'ru' ? ['Телефон', 'Эл. почта', 'Сайт'] : ['Phone', 'Email', 'Website'];
-    return [p.name, p.role && (lang === 'ru' && p.roleRu ? p.roleRu : p.role), p.company,
+    return [displayName(p,lang), p.role && (lang === 'ru' && p.roleRu ? p.roleRu : p.role), p.company,
       p.phone && labels[0] + ': ' + p.phone, p.email && labels[1] + ': ' + p.email,
       p.website && labels[2] + ': ' + p.website,
       p.telegram && 'Telegram: ' + p.telegram, p.whatsapp && 'WhatsApp: ' + p.whatsapp, p.max && 'MAX: ' + p.max].filter(Boolean).join('\n');
   }
   const html = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return { FIELDS, normalize, snapshot, pack, unpack, encode, decode, shareUrl, vcard, plainText, html };
+  return { FIELDS, normalize, snapshot, pack, unpack, encode, decode, shareUrl, vcard, plainText, displayName, html };
 });

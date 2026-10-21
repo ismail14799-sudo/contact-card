@@ -10,12 +10,15 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Protected Contact Card</title>
   <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/app-icon-180.png">
+  <meta name="apple-mobile-web-app-title" content="Contact Card">
+  <link rel="manifest" href="./manifest.webmanifest?v=2.2">
+  <link rel="stylesheet" href="./styles.css?v=2.2">
   <script defer src="./vendor/qrcode.js"></script>
-  <script defer src="./core.js"></script>
-  <script defer src="./secure.js"></script>
-  <script defer src="./app.js?v=2.1"></script>
+  <script defer src="./core.js?v=2.2"></script>
+  <script defer src="./secure.js?v=2.2"></script>
+  <script defer src="./device.js?v=2.2"></script>
+  <script defer src="./app.js?v=2.2"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to contact</a>
@@ -45,6 +48,7 @@
         <p class="eyebrow" data-i18n="letsConnect">LET’S CONNECT</p>
         <h1 id="contact-name" translate="no"></h1>
         <p id="contact-role" class="role"></p>
+        <div id="company-logo-wrap" class="company-logo-wrap" hidden><img id="company-logo" width="420" height="214" alt="Company logo"></div>
         <p id="contact-company" class="company" translate="no"></p>
         <div class="hero-actions">
           <button type="button" class="primary" id="save-contact"><span data-icon="userPlus"></span><span data-i18n="saveContact">Save Contact</span></button>
@@ -55,7 +59,7 @@
         <p class="save-hint" data-i18n="saveHint">Opens a contact file. Confirm “Add contact” on your phone, or import the downloaded file.</p>
       </div>
     </article>
-    <div id="card-footer" class="card-footer" hidden><span id="selection-note"></span><button type="button" id="owner-home" class="text-button" hidden data-i18n="myCard">My Card</button></div>
+    <div id="card-footer" class="card-footer" hidden><span id="selection-note"></span><div class="footer-actions"><button type="button" id="keep-device" class="device-button" data-i18n="keepDevice">Keep on This Device</button><button type="button" id="owner-home" class="text-button" hidden data-i18n="myCard">My Card</button></div></div>
   </main>
   <nav id="action-dock" class="dock" aria-label="Card actions" hidden>
     <button type="button" id="copy-details"><span data-icon="copy"></span><span data-i18n="copy">Copy</span></button>
@@ -99,6 +103,7 @@
   </dialog>
   <dialog id="message-dialog" aria-labelledby="message-title" class="sheet compact-sheet"><div class="sheet-head"><h2 id="message-title" data-i18n="copyManually">Copy Your Details</h2><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div><textarea id="manual-copy" readonly rows="9" aria-label="Details to copy"></textarea></dialog>
   <dialog id="unlock-dialog" aria-labelledby="unlock-title" class="sheet compact-sheet"><div class="grabber" aria-hidden="true"></div><div class="sheet-head"><h2 id="unlock-title" data-i18n="unlockTitle">Open a protected card.</h2><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div><form id="unlock-form"><label class="link-label" for="unlock-link" data-i18n="unlockLabel">Paste the complete card link</label><textarea id="unlock-link" name="cardLink" rows="4" spellcheck="false" autocomplete="off" required></textarea><p id="unlock-error" class="form-error" role="alert"></p><div class="sheet-actions"><button type="submit" class="primary" data-i18n="openCard">Open Card</button></div></form></dialog>
+  <dialog id="device-dialog" aria-labelledby="device-title" class="sheet compact-sheet"><div class="sheet-head"><h2 id="device-title" data-i18n="deviceTitle">One tap next time.</h2><button class="close-button" type="button" data-close aria-label="Close" data-icon="close"></button></div><p class="sheet-intro" data-i18n="deviceIntro">Keep this selected card in this browser, then add it to your Home Screen while the card is open.</p><ol class="device-steps"><li><strong>iPhone</strong><span data-i18n="iphoneSteps">Open in Safari → Share → Add to Home Screen → Add.</span></li><li><strong>Android</strong><span data-i18n="androidSteps">Open in Chrome → menu ⋮ → Add to Home screen.</span></li></ol><p class="fine-print" data-i18n="devicePrivacy">Anyone using this browser can open the saved card. You can remove this device’s saved copy below.</p><p id="device-status" class="device-status" role="status"></p><div class="sheet-actions"><button type="button" class="primary" id="remember-device" data-i18n="rememberDevice">Keep This Card</button></div><button type="button" id="forget-device" class="text-button" data-i18n="forgetDevice">Remove Saved Card from This Device</button></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <noscript><p class="noscript">Enable JavaScript to view this contact card and choose which details to share.</p></noscript>
 </body>
