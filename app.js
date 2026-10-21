@@ -293,5 +293,5 @@
     safeStorageWrite('protected-contact-selection-v2',JSON.stringify([...state.selected]));closeDialog();render();
   });
   setIcons();setTheme(safeStorageRead('contact-theme-v1')||'light');setLanguage('en');loadInitialState().then(()=>setLanguage('en'));
-  if(location.protocol!=='file:'&&'serviceWorker'in navigator&&!state.preview)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  if(location.protocol!=='file:'&&'serviceWorker'in navigator&&!state.preview)navigator.serviceWorker.register('./sw.js?v=4',{updateViaCache:'none'}).catch(()=>{});
 })();
