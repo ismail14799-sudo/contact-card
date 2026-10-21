@@ -26,7 +26,7 @@ The robots exclusion and noindex metadata reduce ordinary indexing. Confidential
 
 The privately supplied owner launch link saves the master profile on that device only, then removes the setup fragment from the address bar. Browser storage is device-local. It is not an authenticated cloud dashboard or encrypted-at-rest password vault.
 
-Recipients receiving a normal card link decrypt a selected snapshot without storing the full profile as an owner profile. **Choose** changes the preview and creates a new encrypted snapshot. The built-in sharing actions and address bar then use that selection. A recipient cannot enable fields absent from their snapshot.
+Recipients receiving a normal QR/card link see a simple contact page: contact details, language/appearance controls, Save Contact, downloads and Copy. Field selection, QR generation, sharing, device management and editing are shown only during the device-local owner workflow opened by the private management link. A normal card link uses the recipient view even in a browser that already holds an owner profile. **Choose** in owner mode creates a new selected snapshot; the built-in Share and QR actions use it. A recipient cannot enable fields absent from their snapshot. These are interface modes for local snapshots, not server authentication or an access-control boundary.
 
 **Keep on This Device** explicitly saves the selected encrypted link in this browser. Future visits restore it without pasting. Anyone using the same browser can open it. The removal action clears both the saved link and any local owner copy. New recipients have no saved card until they choose this action.
 

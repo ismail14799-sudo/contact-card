@@ -13,12 +13,12 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/app-icon-180.png">
   <meta name="apple-mobile-web-app-title" content="Contact Card">
   <link rel="manifest" href="./manifest.webmanifest?v=2.2">
-  <link rel="stylesheet" href="./styles.css?v=2.2">
+  <link rel="stylesheet" href="./styles.css?v=2.3">
   <script defer src="./vendor/qrcode.js"></script>
   <script defer src="./core.js?v=2.2"></script>
   <script defer src="./secure.js?v=2.2"></script>
   <script defer src="./device.js?v=2.2"></script>
-  <script defer src="./app.js?v=2.2"></script>
+  <script defer src="./app.js?v=2.3"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to contact</a>
@@ -57,6 +57,7 @@
         <div id="contact-rows" class="contact-rows"></div>
         <div id="social-links" class="social-links"></div>
         <p class="save-hint" data-i18n="saveHint">Opens a contact file. Confirm “Add contact” on your phone, or import the downloaded file.</p>
+        <button type="button" class="secondary recipient-copy" id="recipient-copy" hidden><span data-icon="copy"></span><span data-i18n="copy">Copy</span></button>
       </div>
     </article>
     <div id="card-footer" class="card-footer" hidden><span id="selection-note"></span><div class="footer-actions"><button type="button" id="keep-device" class="device-button" data-i18n="keepDevice">Keep on This Device</button><button type="button" id="owner-home" class="text-button" hidden data-i18n="myCard">My Card</button></div></div>

@@ -77,8 +77,10 @@
   }
   function availableFields() { return C.FIELDS.filter(key => key === 'portrait' ? state.source?.portrait : !!state.source?.[key]); }
   function render() {
-    const p = selectedCard(), hasCard = !!state.source;
-    $('empty').hidden = hasCard; $('contact').hidden = !hasCard; $('action-dock').hidden = !hasCard; $('card-footer').hidden = !hasCard;
+    const p = selectedCard(), hasCard = !!state.source, showManagement = hasCard && state.owner;
+    $('empty').hidden = hasCard; $('contact').hidden = !hasCard; $('action-dock').hidden = !showManagement; $('card-footer').hidden = !showManagement;
+    $('recipient-copy').hidden = !hasCard || showManagement;
+    document.body.classList.toggle('recipient-view',hasCard&&!showManagement);
     if (!hasCard) {
       document.title='Protected Contact Card';
       for(const id of ['contact-name','contact-role','contact-company','contact-rows','social-links','field-options','edit-fields','qr-art','qr-owner','selection-note','share-selection'])$(id).textContent='';
@@ -100,7 +102,7 @@
     $('social-links').innerHTML = ['telegram','whatsapp','max'].filter(k => p[k]).map(k => '<a class="social-link" target="_blank" rel="noopener noreferrer" href="' + C.html(p[k]) + '">' + icon(k === 'telegram' ? 'telegram' : 'chat') + '<span translate="no">' + t(k) + '</span></a>').join('');
     $('social-links').hidden = !$('social-links').children.length;
     $('selection-note').textContent = state.preview ? t('previewOnly') : (state.selected.size < availableFields().length ? t('selectedNote') : t('protectedNote'));
-    $('owner-home').hidden = !ownerProfile || state.owner;
+    $('owner-home').hidden = true;
     $('edit-card').hidden = !state.owner;
     $('choose-fields').setAttribute('aria-label',t('chooseTitle'));
     currentLink().catch(()=>{});
@@ -157,7 +159,7 @@
     updateFieldCount();
   }
   function updateFieldCount() { $('field-count').textContent = [...state.draft].filter(k=>availableFields().includes(k)).length + ' / ' + availableFields().length + ' ' + t('selected'); }
-  function openFields() { state.draft = new Set(state.selected); renderFields(); openDialog('fields-dialog'); }
+  function openFields() { if(!state.owner)return;state.draft = new Set(state.selected); renderFields(); openDialog('fields-dialog'); }
   function canonicalBase() {
     if (window.CONTACT_BASE_URL && /^https:\/\//.test(window.CONTACT_BASE_URL)) return window.CONTACT_BASE_URL;
     if (location.protocol === 'https:' && !/terminal\.local|localhost|127\.0\.0\.1/.test(location.hostname)) return location.href;
@@ -192,6 +194,7 @@
     toast(t('downloaded'));
   }
   async function renderQr() {
+    if(!state.owner)return;
     const request=++qrRequest,mode=state.qrMode;
     state.qr=null;$('qr-art').textContent=t('preparing');
     for(const id of ['qr-png','qr-svg','qr-copy'])$(id).disabled=true;
@@ -222,11 +225,13 @@
     }
   }
   async function openShare() {
+    if(!state.owner)return;
     let link='';try{link=await currentLink();}catch{toast(t('cryptoUnavailable'));return;}if(!link){toast(S.available()?t('localShare'):t('cryptoUnavailable'));return;}
     $('share-link').value=link; $('share-selection').textContent=C.FIELDS.filter(k=>selectedCard()[k]).length+' '+t('countSuffix');
     $('native-share').hidden = !navigator.share; openDialog('share-dialog');
   }
   function openEdit() {
+    if(!state.owner)return;
     closeDialog(); const p = ownerProfile || {};
     const types={phone:'tel',email:'email',website:'url',telegram:'url',whatsapp:'url',max:'url'};
     $('edit-fields').innerHTML = ['name','nameRu','role','roleRu','company','phone','email','website','telegram','whatsapp','max'].map(key=>'<label for="edit-'+key+'"><span>'+C.html(t(key))+'</span><input id="edit-'+key+'" name="'+key+'" type="'+(types[key]||'text')+'" value="'+C.html(p[key])+'" maxlength="'+(['website','telegram','whatsapp','max'].includes(key)?600:160)+'" autocomplete="'+({name:'name',company:'organization',phone:'tel',email:'email'}[key]||'off')+'" spellcheck="false"'+(key==='name'?' required':'')+'></label>').join('');
@@ -273,7 +278,7 @@
   }
   window.addEventListener('hashchange',()=>loadInitialState().then(()=>setLanguage(state.lang)));
   async function updateAddress(){const stamp=JSON.stringify([state.lang,C.pack(selectedCard())]),link=await currentLink();if(stamp!==JSON.stringify([state.lang,C.pack(selectedCard())]))return '';if(link)history.replaceState(null,'',location.pathname+new URL(link).hash);return link;}
-  function openDevice(){ $('device-status').textContent='';openDialog('device-dialog'); }
+  function openDevice(){ if(!state.owner)return;$('device-status').textContent='';openDialog('device-dialog'); }
   $('keep-device').addEventListener('click',openDevice);
   $('remember-device').addEventListener('click',async()=>{try{const link=await updateAddress();if(!link)throw new Error('No card');D.save(localStorage,link,location.href);$('device-status').textContent=t('deviceSaved');}catch{$('device-status').textContent=t('storageUnavailable');}});
   $('forget-device').addEventListener('click',()=>{try{D.forget(localStorage);ownerProfile=null;history.replaceState(null,'',location.pathname);closeDialog();state.source=null;state.owner=false;state.shared=false;render();toast(t('deviceRemoved'));}catch{$('device-status').textContent=t('storageUnavailable');}});
@@ -291,13 +296,14 @@
   $('download-html').addEventListener('click',async()=>{try{await exportOfflineHtml();}catch{toast(t('downloadError'));}});
   $('print-card').addEventListener('click',()=>{closeDialog();window.print();});
   $('copy-details').addEventListener('click',()=>copy(C.plainText(selectedCard(),state.lang)));
+  $('recipient-copy').addEventListener('click',()=>copy(C.plainText(selectedCard(),state.lang)));
   $('contact-rows').addEventListener('click',e=>{const button=e.target.closest('[data-copy-field]');if(button)copy(selectedCard()[button.dataset.copyField]||'');});
   $('choose-fields').addEventListener('click',openFields);
   $('field-options').addEventListener('change',e=>{if(!e.target.dataset.field)return;e.target.checked?state.draft.add(e.target.dataset.field):state.draft.delete(e.target.dataset.field);updateFieldCount();});
   document.querySelectorAll('[data-preset]').forEach(el=>el.addEventListener('click',()=>{const preset=el.dataset.preset;const fields=preset==='all'?availableFields():preset==='business'?['name','role','company','email','website','portrait']:['name','email','telegram'];state.draft=new Set(fields.filter(k=>availableFields().includes(k)));if(state.source.name)state.draft.add('name');renderFields();}));
   $('apply-fields').addEventListener('click',async()=>{state.selected=new Set(state.draft);if(state.owner)safeStorageWrite('protected-contact-selection-v2',JSON.stringify([...state.selected]));render();closeDialog();try{const link=await currentLink();if(link)history.replaceState(null,'',location.pathname+location.search+new URL(link).hash);}catch{toast(t('cryptoUnavailable'));}});
   $('edit-card').addEventListener('click',openEdit);
-  $('show-qr').addEventListener('click',()=>{state.qrMode=canonicalBase()?'web':'offline';renderQr();openDialog('qr-dialog');});
+  $('show-qr').addEventListener('click',()=>{if(!state.owner)return;state.qrMode=canonicalBase()?'web':'offline';renderQr();openDialog('qr-dialog');});
   document.querySelectorAll('[data-qr-mode]').forEach(el=>el.addEventListener('click',()=>{state.qrMode=el.dataset.qrMode;renderQr();}));
   $('qr-svg').addEventListener('click',()=>downloadQr('svg'));$('qr-png').addEventListener('click',()=>downloadQr('png'));
   $('qr-copy').addEventListener('click',async()=>{try{copy(state.qrMode==='web'?await currentLink():C.vcard(selectedCard(),state.lang,{compact:true}));}catch{toast(t('cryptoUnavailable'));}});
@@ -314,5 +320,5 @@
     safeStorageWrite('protected-contact-selection-v2',JSON.stringify([...state.selected]));closeDialog();render();
   });
   setIcons();setTheme(safeStorageRead('contact-theme-v1')||'light');setLanguage('en');loadInitialState().then(()=>setLanguage(state.lang));
-  if(location.protocol!=='file:'&&'serviceWorker'in navigator&&!state.preview)navigator.serviceWorker.register('./sw.js?v=5',{updateViaCache:'none'}).catch(()=>{});
+  if(location.protocol!=='file:'&&'serviceWorker'in navigator&&!state.preview)navigator.serviceWorker.register('./sw.js?v=6',{updateViaCache:'none'}).catch(()=>{});
 })();
